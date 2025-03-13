@@ -9,25 +9,10 @@ import fsExtra from 'fs-extra'
 import crypto from 'crypto'
 import { DIRECTORIES } from '../constants/constants'
 import chokidar, { type FSWatcher } from 'chokidar'
-// import { extractFileName } from '../renderer/src/libs/utils'
+import { extractFileName } from '../renderer/src/libs/utils'
 import path from 'path'
 import { connectDB, updateDocumentPath } from '../config/database'
 import EventEmitter from 'events'
-
-type ReturnValue = [string, string, string]
-
-export const extractFileName = <T extends string>(fileName: T): ReturnValue => {
-  const parts = fileName.split('&')
-  const getLisTemplateCode = `LAB-FM-${parts[4]}`
-  const getRenderNumberWithExtension = parts[5]
-  const getRenderNumber = getRenderNumberWithExtension.split('.')[0]
-
-  const rawPatientName = parts[3]
-  const patientNameParts = rawPatientName.split('^')
-  const formattedPatientName = `${patientNameParts[0]}, ${patientNameParts.slice(1).join(' ')}`
-
-  return [getLisTemplateCode, getRenderNumber, formattedPatientName]
-}
 
 let watcher: FSWatcher | null = null
 let mainWindow: BrowserWindow | null = null

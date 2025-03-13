@@ -348,8 +348,8 @@ const startFileWatcher = (): void => {
       const patientDetails = extractFileName(fileName) // to be used in api call
       console.log('Extracted File Name', patientDetails)
 
-      const templateCode = patientDetails[0]
-      const renderNumber = patientDetails[1]
+      const templateCode = patientDetails[1]
+      const renderNumber = patientDetails[0]
       const patientName = patientDetails[2]
       //api call here
       await updateDocumentPath(templateCode, renderNumber, destinationPath)

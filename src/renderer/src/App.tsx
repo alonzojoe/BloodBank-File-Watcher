@@ -18,7 +18,7 @@ const initialMessageState = [
   {
     timestamp: dateNow,
     color: `text-green-500`,
-    text: `Welcome to LIS File Watcher`
+    text: `Welcome to Blood Bank File Watcher`
   }
 ]
 

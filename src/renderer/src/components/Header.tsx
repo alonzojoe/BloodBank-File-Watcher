@@ -1,7 +1,7 @@
 const Header = ({ isOn }: { isOn: boolean }): JSX.Element => {
   return (
     <div className="flex justify-between items-center">
-      <h2 className="text-3xl font-semibold py-3">File Watcher </h2>
+      <h2 className="text-3xl font-semibold py-3">Blood Bank File Watcher </h2>
 
       <label className="inline-flex items-center pointer-events-none ">
         <input

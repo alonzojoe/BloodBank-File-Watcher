@@ -460,6 +460,9 @@ const startFileWatcher = (): void => {
   startMonitor()
 }
 
+let watcherRunningHl7 = false
+let monitorIntervalHL7: NodeJS.Timeout | null = null
+
 const stopFileWatcher = (): void => {
   if (watcher) {
     watcher.close()
@@ -477,6 +480,10 @@ const stopFileWatcher = (): void => {
   if (monitorInterval) {
     clearInterval(monitorInterval)
     monitorInterval = null
+  }
+  if (monitorIntervalHL7) {
+    clearInterval(monitorIntervalHL7)
+    monitorIntervalHL7 = null
   }
 }
 

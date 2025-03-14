@@ -25,7 +25,7 @@ const Terminal = ({ messages }: TerminalProps): JSX.Element => {
   return (
     <div
       ref={terminalEl}
-      className="bg-separator w-full overflow-y-auto rounded-lg h-40 md:h-[80vh] p-2 mx-2"
+      className="bg-separator w-full overflow-x-hidden overflow-y-auto rounded-lg h-40 md:h-[80vh] p-2 mx-2"
     >
       <>
         {messages.map((content, index) => (

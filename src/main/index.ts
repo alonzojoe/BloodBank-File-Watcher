@@ -7,7 +7,7 @@ import moment from 'moment'
 import fs from 'fs'
 import fsExtra from 'fs-extra'
 import crypto from 'crypto'
-import { DIRECTORIES } from '../constants/constants'
+import { DIRECTORIES, DIRECTORIESHL7 } from '../constants/constants'
 import chokidar, { type FSWatcher } from 'chokidar'
 import { extractFileName } from '../renderer/src/libs/utils'
 import path from 'path'
@@ -15,6 +15,7 @@ import { connectDB, updateDocumentPath } from '../config/database'
 import EventEmitter from 'events'
 
 let watcher: FSWatcher | null = null
+let watcherHL7: FSWatcher | null = null
 let mainWindow: BrowserWindow | null = null
 const dateNow = moment().format('YYYY-MM-DD HH:mm:ss.SSS')
 
@@ -460,6 +461,320 @@ const startFileWatcher = (): void => {
   startMonitor()
 }
 
+let watcherRunningHl7 = false
+let monitorIntervalHL7: NodeJS.Timeout | null = null
+
+const startFileWatcherHl7 = (): void => {
+  const ordersFolder = DIRECTORIESHL7.orders_directory
+  const targetFolder = DIRECTORIESHL7.target_directory
+
+  if (watcherRunningHl7) {
+    return
+  }
+
+  watcherHL7 = chokidar.watch(ordersFolder, {
+    ignored: /^\./,
+    persistent: true
+  })
+
+  watcherRunningHl7 = true
+  console.log(`Watching changes in ${ordersFolder}`)
+
+  let isProcessing = false
+  const watcherQueue: string[] = []
+
+  const tryToMoveFile = async (filePath: string): Promise<void> => {
+    const fileName = basename(filePath)
+    const fileDate = moment()
+
+    const year = fileDate.format('YYYY')
+    const month = fileDate.format('MM')
+    const day = fileDate.format('DD')
+
+    const pathYear = join(targetFolder, year)
+    const pathMonth = join(pathYear, month)
+    const pathDay = join(pathMonth, day)
+    const tempDestinationPath = join(pathDay, `${fileName}.tmp`)
+    const finalDestinationPath = join(pathDay, fileName)
+
+    const fileStable = await isFileStable({
+      filepath: filePath,
+      interval: 1000,
+      retries: 10
+    })
+
+    if (!fileStable) {
+      console.error(`File ${filePath} is not stable`)
+      sendDataToComponent({
+        timestamp: dateNow,
+        color: `text-red-500`,
+        text: `File ${filePath} is not stable`
+      })
+      processNextFile()
+      return
+    }
+
+    await ensureDirectories([pathYear, pathMonth, pathDay])
+
+    const originalHashFileName = await hashedFileName(filePath, 5, 1000)
+
+    sendDataToComponent({
+      timestamp: dateNow,
+      color: `text-yellow-500`,
+      text: `Created ${originalHashFileName} Hashed File Name`
+    })
+
+    const max_retries = 5
+
+    for (let retries = 0; retries < max_retries; retries++) {
+      try {
+        console.log('Copying file to target directory: ')
+        await fsExtra.copy(filePath, tempDestinationPath)
+
+        const copiedHashFileName = await hashedFileName(tempDestinationPath, 5, 1000)
+
+        sendDataToComponent({
+          timestamp: dateNow,
+          color: `text-yellow-500`,
+          text: `Copied ${copiedHashFileName} Hash File Name`
+        })
+
+        if (originalHashFileName !== copiedHashFileName) {
+          sendDataToComponent({
+            timestamp: dateNow,
+            color: `text-red-500`,
+            text: `Hashed File mismatch: ${fileName}`
+          })
+          console.log(`Hashed File mismatch: ${fileName}`)
+          processNextFile()
+          return
+        }
+
+        await fsExtra.move(tempDestinationPath, finalDestinationPath, { overwrite: true })
+
+        console.log(`Copied ${fileName} successully`)
+
+        sendDataToComponent({
+          timestamp: dateNow,
+          color: `text-green-500`,
+          text: `Copied ${fileName} successully`
+        })
+
+        await finalizedFileProcess(filePath, fileName, finalDestinationPath)
+        return
+      } catch (error) {
+        if (error instanceof Error && 'code' in error) {
+          sendDataToComponent({
+            timestamp: dateNow,
+            color: `text-red-500`,
+            text: `Error: ${error?.message}`
+          })
+          await handleFileCopyError(
+            error as NodeJS.ErrnoException,
+            retries,
+            max_retries,
+            fileName,
+            tempDestinationPath
+          )
+          processNextFile()
+        }
+      }
+    }
+  }
+
+  // const hashedFileName = async (filePath: string): Promise<string> => {
+  //   return new Promise((resolve, reject) => {
+  //     const hash = crypto.createHash('md5')
+  //     const stream = fs.createReadStream(filePath)
+  //     stream.on('data', (data) => hash.update(data))
+  //     stream.on('end', () => resolve(hash.digest('hex')))
+  //     stream.on('error', (err) => {
+  //       sendDataToComponent({
+  //         timestamp: dateNow,
+  //         color: `text-red-500`,
+  //         text: `Hash Error: ${err.message}`
+  //       })
+  //       processNextFile()
+  //       reject(err)
+  //     })
+  //   })
+  // }
+
+  interface CustomError extends Error {
+    code?: string
+  }
+
+  const hashedFileName = async (
+    filePath: string,
+    retries = 5,
+    interval = 1000
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      console.log(`Starting hash for file: ${filePath}`)
+
+      const tryHashFile = (retryCount: number): void => {
+        const hash = crypto.createHash('md5')
+        const stream = fs.createReadStream(filePath)
+
+        stream.on('data', (data) => {
+          console.log(`Hashing data chunk for file: ${filePath}`)
+          hash.update(data)
+        })
+
+        stream.on('end', () => {
+          const hashDigest = hash.digest('hex')
+          console.log(`Hashing completed for file: ${filePath}, Hash: ${hashDigest}`)
+          resolve(hashDigest)
+        })
+
+        stream.on('error', (err: CustomError) => {
+          console.error(`Error hashing file: ${filePath}, Error: ${err.message}`)
+          sendDataToComponent({
+            timestamp: dateNow,
+            color: `text-red-500`,
+            text: `Hash Error: ${err.message}`
+          })
+          if (retryCount > 0 && err.code === 'EBUSY') {
+            console.log(
+              `Retrying hash for file: ${filePath} (${retries - retryCount + 1}/${retries})`
+            )
+            setTimeout(() => tryHashFile(retryCount - 1), interval)
+          } else {
+            processNextFile()
+            reject(err)
+          }
+        })
+      }
+
+      tryHashFile(retries)
+    })
+  }
+
+  let processNextFileTimeout: NodeJS.Timeout | null = null
+  const finalizedFileProcess = async (
+    filePath: string,
+    fileName: string,
+    destinationPath: string
+  ): Promise<void> => {
+    try {
+      console.log(`Removing source file: ${filePath}`)
+      await fsExtra.remove(filePath)
+
+      const hl7Details = fileName
+
+      // const templateCode = patientDetails[1]
+      // const renderNumber = patientDetails[0]
+      // const patientName = patientDetails[2]
+      //api call here
+      // await updateDocumentPath(templateCode, renderNumber, destinationPath)
+      console.log('HL7 details', hl7Details)
+      //end api call here
+      // console.log('LIS TemplateCode', templateCode)
+      // console.log('Render Number', renderNumber)
+      // console.log('PatientName', patientName)
+      console.log('Document Path', destinationPath)
+
+      const data = {
+        timestamp: dateNow,
+        color: `text-green-500`,
+        text: `${hl7Details} results have been processed`
+      }
+      //send message to component terminal
+      sendDataToComponent(data)
+    } catch (error) {
+      if (error instanceof Error) {
+        const data = {
+          timestamp: dateNow,
+          color: `text-green-500`,
+          text: `Error: ${error.message}`
+        }
+        sendDataToComponent(data)
+        console.log(`an error occured ${error?.message}`)
+      }
+      const data = {
+        timestamp: dateNow,
+        color: `text-green-500`,
+        text: `Error: ${error}`
+      }
+      sendDataToComponent(data)
+    }
+
+    if (processNextFileTimeout) {
+      clearTimeout(processNextFileTimeout)
+    }
+
+    processNextFileTimeout = setTimeout(processNextFile, 7000)
+  }
+
+  const processNextFile = (): void => {
+    const nextFile = watcherQueue.shift()
+    if (nextFile) {
+      tryToMoveFile(nextFile)
+    } else {
+      isProcessing = false
+    }
+  }
+
+  const ensureDirectories = async (dirs: string[]): Promise<void> => {
+    for (const dir of dirs) {
+      if (!fs.existsSync(dir)) {
+        await fsExtra.ensureDir(dir)
+        setTerminal('text-green-500', `Folder created: ${dir}`)
+      } else {
+        setTerminal('text-yellow-500', `Folder exists: ${dir}`)
+      }
+    }
+  }
+
+  watcher.on('add', (filePath: string) => {
+    const fileExtension = path.extname(filePath).toLowerCase()
+    if (fileExtension === '.pdf') {
+      if (!isProcessing && fs.existsSync(filePath)) {
+        isProcessing = true
+        watcherQueue.push(filePath)
+
+        const fileToProcess = watcherQueue.shift()
+
+        if (fileToProcess) {
+          tryToMoveFile(fileToProcess)
+        }
+      } else if (fs.existsSync(filePath)) {
+        watcherQueue.push(filePath)
+      } else {
+        console.error(`File does not exist: ${filePath}`)
+      }
+    }
+  })
+
+  watcher.on('error', (error: unknown) => {
+    if (error instanceof Error) {
+      console.log('File Watcher caught and Error', error?.message)
+    } else {
+      console.log(`Unexpected Error type: ${error}`)
+    }
+  })
+
+  // Initial scan of the directory
+  watcher.on('ready', () => {
+    console.log('Initial scan complete. Watching for changes...')
+    fs.readdir(ordersFolder, (err, files) => {
+      if (err) {
+        console.error('Error reading directory:', err)
+        return
+      }
+      files.forEach((file) => {
+        const filePath = join(ordersFolder, file)
+        const fileExtension = path.extname(filePath).toLowerCase()
+        if (fileExtension === '.hl7' && watcher) {
+          watcher.emit('add', filePath)
+        }
+      })
+    })
+  })
+
+  startMonitorHL7()
+}
+
 const stopFileWatcher = (): void => {
   if (watcher) {
     watcher.close()
@@ -477,6 +792,10 @@ const stopFileWatcher = (): void => {
   if (monitorInterval) {
     clearInterval(monitorInterval)
     monitorInterval = null
+  }
+  if (monitorIntervalHL7) {
+    clearInterval(monitorIntervalHL7)
+    monitorIntervalHL7 = null
   }
 }
 
@@ -498,6 +817,17 @@ const startMonitor = (): void => {
 
   monitorInterval = setInterval(() => {
     if (!watcherRunning) {
+      console.log(`Watcher is not running. Restarting...`)
+      restartFileWatcher()
+    }
+  }, 10000)
+}
+
+const startMonitorHL7 = (): void => {
+  if (monitorIntervalHL7) return
+
+  monitorIntervalHL7 = setInterval(() => {
+    if (!watcherRunningHl7) {
       console.log(`Watcher is not running. Restarting...`)
       restartFileWatcher()
     }

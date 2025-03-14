@@ -15,6 +15,7 @@ import { connectDB, updateDocumentPath } from '../config/database'
 import EventEmitter from 'events'
 
 let watcher: FSWatcher | null = null
+let watcherHL7: FSWatcher | null = null
 let mainWindow: BrowserWindow | null = null
 const dateNow = moment().format('YYYY-MM-DD HH:mm:ss.SSS')
 
@@ -471,7 +472,7 @@ const startFileWatcherHl7 = (): void => {
     return
   }
 
-  watcher = chokidar.watch(ordersFolder, {
+  watcherHL7 = chokidar.watch(ordersFolder, {
     ignored: /^\./,
     persistent: true
   })

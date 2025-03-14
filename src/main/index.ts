@@ -826,7 +826,7 @@ const startMonitorHL7 = (): void => {
   if (monitorIntervalHL7) return
 
   monitorIntervalHL7 = setInterval(() => {
-    if (!watcherRunning) {
+    if (!watcherRunningHl7) {
       console.log(`Watcher is not running. Restarting...`)
       restartFileWatcher()
     }

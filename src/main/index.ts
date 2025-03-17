@@ -726,9 +726,9 @@ const startFileWatcherHl7 = (): void => {
     }
   }
 
-  watcher.on('add', (filePath: string) => {
+  watcherHL7.on('add', (filePath: string) => {
     const fileExtension = path.extname(filePath).toLowerCase()
-    if (fileExtension === '.pdf') {
+    if (fileExtension === '.hl7') {
       if (!isProcessing && fs.existsSync(filePath)) {
         isProcessing = true
         watcherQueue.push(filePath)
@@ -746,7 +746,7 @@ const startFileWatcherHl7 = (): void => {
     }
   })
 
-  watcher.on('error', (error: unknown) => {
+  watcherHL7.on('error', (error: unknown) => {
     if (error instanceof Error) {
       console.log('File Watcher caught and Error', error?.message)
     } else {
@@ -755,7 +755,7 @@ const startFileWatcherHl7 = (): void => {
   })
 
   // Initial scan of the directory
-  watcher.on('ready', () => {
+  watcherHL7.on('ready', () => {
     console.log('Initial scan complete. Watching for changes...')
     fs.readdir(ordersFolder, (err, files) => {
       if (err) {
@@ -779,6 +779,19 @@ const stopFileWatcher = (): void => {
   if (watcher) {
     watcher.close()
     watcher = null
+    sendDataToComponent({
+      timestamp: dateNow,
+      color: `text-red-500`,
+      text: `File Watcher stopped.`
+    })
+    watcherRunning = false
+  } else {
+    console.log('File Watcher is not running')
+  }
+
+  if (watcherHL7) {
+    watcherHL7.close()
+    watcherHL7 = null
     sendDataToComponent({
       timestamp: dateNow,
       color: `text-red-500`,
@@ -852,6 +865,7 @@ app.whenReady().then(async () => {
       text: `File Watcher started.`
     })
     startFileWatcher()
+    startFileWatcherHl7()
   })
 
   ipcMain.on('stopFileWatcher', () => {

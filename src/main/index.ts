@@ -413,21 +413,39 @@ const startFileWatcher = (): void => {
   }
 
   watcher.on('add', (filePath: string) => {
+    // const fileExtension = path.extname(filePath).toLowerCase()
+    // if (fileExtension === '.pdf') {
+    //   if (!isProcessing && fs.existsSync(filePath)) {
+    //     isProcessing = true
+    //     watcherQueue.push(filePath)
+
+    //     const fileToProcess = watcherQueue.shift()
+
+    //     if (fileToProcess) {
+    //       tryToMoveFile(fileToProcess)
+    //     }
+    //   } else if (fs.existsSync(filePath)) {
+    //     watcherQueue.push(filePath)
+    //   } else {
+    //     console.error(`File does not exist: ${filePath}`)
+    //   }
+    // }
     const fileExtension = path.extname(filePath).toLowerCase()
     if (fileExtension === '.pdf') {
-      if (!isProcessing && fs.existsSync(filePath)) {
+      if (!fs.existsSync(filePath)) {
+        console.error(`File does not exist: ${filePath}`)
+        return
+      }
+
+      if (!isProcessing) {
         isProcessing = true
         watcherQueue.push(filePath)
-
         const fileToProcess = watcherQueue.shift()
-
         if (fileToProcess) {
           tryToMoveFile(fileToProcess)
         }
-      } else if (fs.existsSync(filePath)) {
-        watcherQueue.push(filePath)
       } else {
-        console.error(`File does not exist: ${filePath}`)
+        watcherQueue.push(filePath)
       }
     }
   })
@@ -819,6 +837,7 @@ const restartFileWatcher = (): void => {
   if (!watcherRunning) {
     setTimeout(() => {
       startFileWatcher()
+      startFileWatcherHl7()
     }, 5000)
   } else {
     console.log('File Watcher is already running')

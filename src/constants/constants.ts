@@ -6,8 +6,8 @@ export const DIRECTORIES: MappedDrives = {
 }
 
 export const DIRECTORIESHL7: MappedDrives = {
-  orders_directory: 'E:\\ORDERS_HL7',
-  target_directory: 'E:\\TARGET_HL7'
+  orders_directory: 'Z:\\TRIAL',
+  target_directory: 'Z:\\TRIAL Processed HL7 Files'
 }
 
 // export const DIRECTORIES: MappedDrives = {

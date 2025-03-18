@@ -9,7 +9,7 @@ import fsExtra from 'fs-extra'
 import crypto from 'crypto'
 import { DIRECTORIES, DIRECTORIESHL7 } from '../constants/constants'
 import chokidar, { type FSWatcher } from 'chokidar'
-import { extractFileName } from '../renderer/src/libs/utils'
+import { extractFileName, processHL7Content } from '../renderer/src/libs/utils'
 import path from 'path'
 import { connectDB, updateDocumentPath } from '../config/database'
 import EventEmitter from 'events'
@@ -676,6 +676,8 @@ const startFileWatcherHl7 = (): void => {
   ): Promise<void> => {
     try {
       console.log(`Removing source file: ${filePath}`)
+      console.log('before remove file name', fileName)
+      await processHL7Content(fileName)
       await fsExtra.remove(filePath)
 
       const hl7Details = fileName

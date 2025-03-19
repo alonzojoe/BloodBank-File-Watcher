@@ -18,8 +18,9 @@ export const extractFileName = <T extends string>(fileName: T): ReturnValue => {
 }
 
 type ResponseHL7 = {
-  statusCode: number
+  status: number
   message: string
+  patient: string
 }
 
 export const processHL7Content = async (fileName: string): Promise<number> => {
@@ -34,7 +35,7 @@ export const processHL7Content = async (fileName: string): Promise<number> => {
     )
     const res = (await response.data) as ResponseHL7
     console.log('Response processHL7Content: ', res)
-    return res.statusCode
+    return res.status
   } catch (error) {
     if (error instanceof Error) {
       console.log('Error while processing HL7 content:', error.message)

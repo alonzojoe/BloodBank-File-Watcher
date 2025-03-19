@@ -817,7 +817,7 @@ const stopFileWatcher = (): void => {
       color: `text-red-500`,
       text: `File Watcher stopped.`
     })
-    watcherRunning = false
+    watcherRunningHl7 = false
   } else {
     console.log('File Watcher is not running')
   }

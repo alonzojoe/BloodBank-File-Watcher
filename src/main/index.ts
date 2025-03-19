@@ -371,7 +371,7 @@ const startFileWatcher = (): void => {
       if (error instanceof Error) {
         const data = {
           timestamp: dateNow,
-          color: `text-green-500`,
+          color: `text-red-500`,
           text: `Error: ${error.message}`
         }
         sendDataToComponent(data)
@@ -705,7 +705,7 @@ const startFileWatcherHl7 = (): void => {
       if (error instanceof Error) {
         const data = {
           timestamp: dateNow,
-          color: `text-green-500`,
+          color: `text-red-500`,
           text: `Error: ${error.message}`
         }
         sendDataToComponent(data)
@@ -713,7 +713,7 @@ const startFileWatcherHl7 = (): void => {
       }
       const data = {
         timestamp: dateNow,
-        color: `text-green-500`,
+        color: `text-red-500`,
         text: `Error: ${error}`
       }
       sendDataToComponent(data)

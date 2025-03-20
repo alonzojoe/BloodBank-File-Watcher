@@ -26,7 +26,7 @@ type ResponseHL7 = {
 export const processHL7Content = async (fileName: string): Promise<number> => {
   try {
     const response = await axios(
-      `http://192.163.10.131/edifylive/lis-bcu-end-point/hl7-parser-end-point.php`,
+      `http://192.163.10.70/edifylive/lis-bcu-end-point/hl7-parser-end-point.php`,
       {
         params: {
           file: fileName

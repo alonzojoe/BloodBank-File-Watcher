@@ -3,7 +3,7 @@ import sql from 'mssql'
 const config = {
   user: 'sa',
   password: 'EmedP@ssw0rd',
-  server: '192.163.10.70\\SQL2K14',
+  server: '192.163.10.69\\SQL2K14',
   database: 'MedixDB_Live',
   options: {
     enableArithAbort: true,

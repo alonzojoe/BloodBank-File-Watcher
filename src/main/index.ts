@@ -914,6 +914,7 @@ app.whenReady().then(async () => {
 
   setTimeout(() => {
     checkMappedDrives(DIRECTORIES)
+    checkMappedDrives(DIRECTORIESHL7)
   }, 3000)
 
   app.on('activate', function () {
